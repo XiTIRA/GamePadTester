@@ -13,6 +13,7 @@ public class GamePadTester : Game
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private Rectangle _finalDestination;
+    private Rectangle _renderDestination = new Rectangle(0,0,272,160);
     private bool _isResizing;
     private Atlas _atlas;
 
@@ -21,6 +22,13 @@ public class GamePadTester : Game
 
     private SpriteFont _font;
     private Texture2D _logo;
+
+    private Texture2D _frame;
+
+    private int[] _buttonStates = [0,0,0,0];
+    private int _buttonSelected = 0;
+
+    public Color BGCoolor = Color.LightSlateGray;
 
     public GamePadTester()
     {
@@ -56,16 +64,24 @@ public class GamePadTester : Game
         base.Initialize();
     }
 
+    private GamePadSwitcher _switcher;
+    private ColorModeButton _colorModeButton;
     private RenderTarget2D _renderTarget;
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-        _renderTarget = new RenderTarget2D(GraphicsDevice, 272,160);
+        _renderTarget = new RenderTarget2D(GraphicsDevice, _renderDestination.Width,_renderDestination.Height);
 
         _font = Content.Load<SpriteFont>("defaultFont");
         _atlas = new Atlas(Content.Load<Texture2D>("buttons"), new Point(16, 16));
         _logo = Content.Load<Texture2D>("mg");
+        _frame = Content.Load<Texture2D>("Frame");
+        _onOff = new Atlas(Content.Load<Texture2D>("OnOff"), new Point(48, 16));
+        _dot = Content.Load<Texture2D>("WhiteDot");
+
+        _switcher = new GamePadSwitcher(_onOff, new Vector2(248,45), this);
+        _colorModeButton = new ColorModeButton(_dot,new Vector2(250,8), this);
 
         _buttons.Add(new TestButton(_atlas, "1:2", new Point(196,96), Buttons.X));
         _buttons.Add(new TestButton(_atlas, "1:3", new Point(208,108), Buttons.A));
@@ -99,7 +115,14 @@ public class GamePadTester : Game
     protected override void Update(GameTime gameTime)
     {
 
-        var gs = GamePad.GetState(PlayerIndex.One);
+        if (_isResizing) return;
+
+        _colorModeButton.Update();
+        _switcher.Update();
+
+
+
+        var gs = _switcher.ActivePadState;
         _down = string.Empty;
         foreach (var btn in _buttons)
         {
@@ -115,6 +138,7 @@ public class GamePadTester : Game
         base.Update(gameTime);
     }
 
+    
 
     private void CalculateRenderDestination()
     {
@@ -122,15 +146,34 @@ public class GamePadTester : Game
         _finalDestination = new Rectangle(0, 0, size.X, size.Y);
     }
 
+    public Point ConvertPoint(Point point)
+    {
+        float scaleX = (float)_renderDestination.Width / _finalDestination.Width;
+        float scaleY = (float)_renderDestination.Height / _finalDestination.Height;
+        return new Point(
+            (int)(point.X * scaleX),
+            (int)(point.Y * scaleY)
+        );
+    }
+    
+    private Texture2D _dot;
+
+    private Atlas _onOff;
     private string _down = "";
 private string gamePadName = "";
     protected override void Draw(GameTime gameTime)
     {
 
         GraphicsDevice.SetRenderTarget(_renderTarget);
-        GraphicsDevice.Clear(Color.AntiqueWhite);
+        GraphicsDevice.Clear(BGCoolor); // antiquewhite,liteslategray
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+
+        _colorModeButton.Draw(_spriteBatch);
+
+        _switcher.Draw(_spriteBatch);
+
+        _spriteBatch.Draw(_frame, Vector2.Zero, Color.White*0.5f);
 
         foreach (var btn in _buttons)
             btn.Draw(_spriteBatch);
@@ -152,6 +195,119 @@ private string gamePadName = "";
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+}
+
+public class GamePadSwitcher
+{
+    private GamePadTester _game;
+    private Atlas _atlas;
+    private const string _on = "0:1";
+    private const string _off = "0:0";
+    private float _transparency = 0.25f;
+    private const int yOffset = 4;
+    private const int xOffset = -5;
+    private Vector2 _position;
+    public PlayerIndex ActiveGamePad = PlayerIndex.One;
+    public GamePadState ActivePadState => GamePad.GetState(ActiveGamePad);
+
+    private MouseState _prevMouse = new MouseState();
+    private bool[] _gamepadStates = [false,false,false,false];
+
+    private List<Rectangle> _buttons = new();
+
+    public GamePadSwitcher(Atlas atlas, Vector2 position, GamePadTester game)
+    {
+        _atlas = atlas;
+        _position = position;
+        _game = game;
+
+        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*0, 48,16));
+        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*1, 48,16));
+        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*2, 48,16));
+        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*3, 48,16));
+    }
+
+    public void Update()
+    {
+        _gamepadStates[0] = GamePad.GetState(PlayerIndex.One).IsConnected;
+        _gamepadStates[1] = GamePad.GetState(PlayerIndex.Two).IsConnected;
+        _gamepadStates[2] = GamePad.GetState(PlayerIndex.Three).IsConnected;
+        _gamepadStates[3] = GamePad.GetState(PlayerIndex.Four).IsConnected;
+
+        var ms = Mouse.GetState();
+        if (ms.LeftButton == ButtonState.Pressed & _prevMouse.LeftButton != ButtonState.Pressed)
+        {
+            var pos = _game.ConvertPoint(ms.Position);
+
+            if (_buttons[0].Contains(pos))
+                ActiveGamePad = PlayerIndex.One;
+            if(_buttons[1].Contains(pos))
+                ActiveGamePad = PlayerIndex.Two;
+            if(_buttons[2].Contains(pos))
+                ActiveGamePad = PlayerIndex.Three;
+            if(_buttons[3].Contains(pos))
+                ActiveGamePad = PlayerIndex.Four;
+
+
+        }_prevMouse = ms;
+    }
+
+    public void Draw(SpriteBatch spriteBatch)
+    {
+        _atlas.Draw(spriteBatch, _gamepadStates[0] ? _on : _off, new Point(_buttons[0].X+(ActiveGamePad == PlayerIndex.One ? xOffset:0), _buttons[0].Y), ActiveGamePad == PlayerIndex.One ? Color.White : Color.White*0.25f);
+        _atlas.Draw(spriteBatch, _gamepadStates[1] ? _on : _off, new Point(_buttons[1].X+(ActiveGamePad == PlayerIndex.Two ? xOffset:0), _buttons[1].Y), ActiveGamePad == PlayerIndex.Two ? Color.White : Color.White*0.25f);
+        _atlas.Draw(spriteBatch, _gamepadStates[2] ? _on : _off, new Point(_buttons[2].X+(ActiveGamePad == PlayerIndex.Three ? xOffset:0), _buttons[2].Y), ActiveGamePad == PlayerIndex.Three ? Color.White : Color.White*0.25f);
+        _atlas.Draw(spriteBatch, _gamepadStates[3] ? _on : _off, new Point(_buttons[3].X+(ActiveGamePad == PlayerIndex.Four ? xOffset:0), _buttons[3].Y), ActiveGamePad == PlayerIndex.Four ? Color.White : Color.White*0.25f);
+    }
+}
+
+public class ColorModeButton
+{
+    private Texture2D _texture;
+    private Vector2 _position;
+    public Color CurrentColor;
+    private Color _altColor;
+    private MouseState _prevMouse = new MouseState();
+    private GamePadTester _game;
+
+    public ColorModeButton(Texture2D texture, Vector2 position, GamePadTester game)
+    {
+        _position = position;
+        _texture = texture;
+        CurrentColor = Color.LightSlateGray;
+        _altColor = Color.AntiqueWhite;
+        _game = game;
+    }
+
+    public void Update()
+    {
+        var ms = Mouse.GetState();
+
+        if (ms.LeftButton == ButtonState.Pressed & _prevMouse.LeftButton != ButtonState.Pressed)
+        {
+            var pos = _game.ConvertPoint(ms.Position);
+
+            if (new Rectangle((int)_position.X, (int)_position.Y, _texture.Width, _texture.Height).Contains(pos))
+            {
+                  CurrentColor = CurrentColor == Color.LightSlateGray ? Color.AntiqueWhite : Color.LightSlateGray;
+                    _altColor = CurrentColor == Color.LightSlateGray ? Color.AntiqueWhite : Color.LightSlateGray;
+
+                    _game.BGCoolor = CurrentColor;
+            }
+
+        }
+
+        _prevMouse = ms;
+    }
+
+    public void Draw(SpriteBatch spriteBatch)
+    {
+        spriteBatch.Draw(
+            _texture,
+            _position,
+            _altColor
+        );
     }
 }
 
