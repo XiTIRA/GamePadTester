@@ -1,34 +1,41 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection.Metadata.Ecma335;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Input.Touch;
 using MonoGame.Framework.Utilities;
 
 namespace Xitira.GamePadTester;
 
 public class GamePadTester : Game
 {
+    private readonly string _version = "3.8.3.2093-develop"  ;
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
-    private Rectangle _finalDestination;
-    private Rectangle _renderDestination = new Rectangle(0,0,272,160);
-    private bool _isResizing;
-    private Atlas _atlas;
 
-    private List<TestButton> _buttons = new();
+    private Rectangle _finalDestination;
+    private readonly Rectangle _renderDestination = new (0, 0, 272, 160);
+    private readonly Rectangle _preferredRenderSize = new (0, 0, 272 * 4, 160 * 4);
+    private bool _isResizing;
+
     private List<TestAxis> _axes = new();
 
     private SpriteFont _font;
     private Texture2D _logo;
-
     private Texture2D _frame;
+    private Texture2D _tileBackground;
 
-    private int[] _buttonStates = [0,0,0,0];
-    private int _buttonSelected = 0;
+    private GamePadSwitcher _switcher;
+    private ColorModeButton _colorModeButton;
+    private RenderTarget2D _renderTarget;
+    private GamePadVisualiser _visualiser;
 
-    public Color BGCoolor = Color.LightSlateGray;
+    private string _gamePadName = "";
+
+    private readonly float _scrollSpeed = 20f; // Pixels per second
+    private float _scrollOffset ;
 
     public GamePadTester()
     {
@@ -46,6 +53,9 @@ public class GamePadTester : Game
         else
         {
             Window.AllowUserResizing = true;
+            _graphics.PreferredBackBufferWidth = _preferredRenderSize.Width;
+            _graphics.PreferredBackBufferHeight = _preferredRenderSize.Height;
+            _graphics.ApplyChanges();
         }
 
         Window.ClientSizeChanged += (sender, args) =>
@@ -59,86 +69,88 @@ public class GamePadTester : Game
         };
 
         CalculateRenderDestination();
-        Window.Title = "GamePad Tester for MG 3.1.3";
+        Window.Title = $"GamePad Tester for MG {_version}";
 
         base.Initialize();
     }
 
-    private GamePadSwitcher _switcher;
-    private ColorModeButton _colorModeButton;
-    private RenderTarget2D _renderTarget;
+
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-        _renderTarget = new RenderTarget2D(GraphicsDevice, _renderDestination.Width,_renderDestination.Height);
+        _renderTarget = new RenderTarget2D(GraphicsDevice, _renderDestination.Width, _renderDestination.Height);
 
-        _font = Content.Load<SpriteFont>("defaultFont");
-        _atlas = new Atlas(Content.Load<Texture2D>("buttons"), new Point(16, 16));
+        var bitmapFont = new BitmapFont(Content.Load<Texture2D>("Unnamed"), "Content/Unnamed.fnt");
+        _font = bitmapFont.Font;
+
+        _tileBackground = Content.Load<Texture2D>("tile");
+        var atlas = new Atlas(Content.Load<Texture2D>("buttons"), new Point(16, 16));
         _logo = Content.Load<Texture2D>("mg");
         _frame = Content.Load<Texture2D>("Frame");
-        _onOff = new Atlas(Content.Load<Texture2D>("OnOff"), new Point(48, 16));
-        _dot = Content.Load<Texture2D>("WhiteDot");
+        var onOff = new Atlas(Content.Load<Texture2D>("OnOff"), new Point(48, 16));
+        var dot = Content.Load<Texture2D>("WhiteDot");
 
-        _switcher = new GamePadSwitcher(_onOff, new Vector2(248,45), this);
-        _colorModeButton = new ColorModeButton(_dot,new Vector2(250,8), this);
+        var gamePadTexture = Content.Load<Texture2D>("xboxoutline");
 
-        _buttons.Add(new TestButton(_atlas, "1:2", new Point(196,96), Buttons.X));
-        _buttons.Add(new TestButton(_atlas, "1:3", new Point(208,108), Buttons.A));
-        _buttons.Add(new TestButton(_atlas, "1:4", new Point(208,84), Buttons.Y));
-        _buttons.Add(new TestButton(_atlas, "1:5", new Point(220,96), Buttons.B));
-        _buttons.Add(new TestButton(_atlas, "1:6", new Point(80,40), Buttons.Back));
-        _buttons.Add(new TestButton(_atlas, "1:7", new Point(176,40), Buttons.Start));
+        _switcher = new GamePadSwitcher(onOff, new Vector2(248, 45), this, _font);
+        _colorModeButton = new ColorModeButton(dot, new Vector2(250, 8), this);
 
-        _buttons.Add(new TestButton(_atlas, "8:5", new Point(48,88), Buttons.DPadUp));
-        _buttons.Add(new TestButton(_atlas, "8:6", new Point(40,96), Buttons.DPadLeft));
-        _buttons.Add(new TestButton(_atlas, "9:5", new Point(48,102), Buttons.DPadDown));
-        _buttons.Add(new TestButton(_atlas, "9:6", new Point(56,96), Buttons.DPadRight));
+        _visualiser = new GamePadVisualiser(new Point(35, 20), gamePadTexture);
+        _visualiser.AddButton(new TestButton(atlas, "1:2",  Buttons.X));
+        _visualiser.AddButton(new TestButton(atlas, "1:3",  Buttons.A));
+        _visualiser.AddButton(new TestButton(atlas, "1:4",  Buttons.Y));
+        _visualiser.AddButton(new TestButton(atlas, "1:5",  Buttons.B));
+        _visualiser.AddButton(new TestButton(atlas, "1:6",  Buttons.Back));
+        _visualiser.AddButton(new TestButton(atlas, "1:7",  Buttons.Start));
+        _visualiser.AddButton(new TestButton(atlas, "8:5",  Buttons.DPadUp));
+        _visualiser.AddButton(new TestButton(atlas, "8:6", Buttons.DPadLeft));
+        _visualiser.AddButton(new TestButton(atlas, "9:5",  Buttons.DPadDown));
+        _visualiser.AddButton(new TestButton(atlas, "9:6",  Buttons.DPadRight));
+        _visualiser.AddButton(new TestButton(atlas, "21:3",  Buttons.LeftTrigger));
+        _visualiser.AddButton(new TestButton(atlas, "21:4",  Buttons.RightTrigger));
+        _visualiser.AddButton(new TestButton(atlas, "21:5",  Buttons.LeftShoulder));
+        _visualiser.AddButton(new TestButton(atlas, "21:6",  Buttons.RightShoulder));
+        _visualiser.AddButton(new TestButton(atlas, "21:7",  Buttons.BigButton));
+        _visualiser.AddButton(new TestButton(atlas, "7:33",  Buttons.LeftStick));
+        _visualiser.AddButton(new TestButton(atlas, "7:34",  Buttons.RightStick));
 
-        _buttons.Add(new TestButton(_atlas, "21:3", new Point(48,32), Buttons.LeftTrigger));
-        _buttons.Add(new TestButton(_atlas, "21:4", new Point(208,32), Buttons.RightTrigger));
-        _buttons.Add(new TestButton(_atlas, "21:5", new Point(48,43), Buttons.LeftShoulder));
-        _buttons.Add(new TestButton(_atlas, "21:6", new Point(208,43), Buttons.RightShoulder));
-        _buttons.Add(new TestButton(_atlas, "21:7", new Point(128,48), Buttons.BigButton));
-        _buttons.Add(new TestButton(_atlas, "7:33", new Point(112,96), Buttons.LeftStick));
-        _buttons.Add(new TestButton(_atlas, "7:34", new Point(144,96), Buttons.RightStick));
-
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(224+2, 32+6), "RightTrigger",false));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(32+4, 32+6), "LeftTrigger",false));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(160+8, 96), "RightStickX"));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(176, 96), "RightStickY"));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(96-8, 96), "LeftStickX"));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(96, 96), "LeftStickY"));
-
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(14, 16), "RightTrigger",
+            false));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(24, 16), "LeftTrigger",
+            false));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(5, 110), "RightStickX"));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(14, 110), "RightStickY"));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(24, 110), "LeftStickX"));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(33, 110), "LeftStickY"));
     }
 
     protected override void Update(GameTime gameTime)
     {
-
         if (_isResizing) return;
 
-        _colorModeButton.Update();
+        _colorModeButton.Update(gameTime);
         _switcher.Update();
 
-
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        _scrollOffset += _scrollSpeed * deltaTime;
+        _scrollOffset %= _tileBackground.Height;
 
         var gs = _switcher.ActivePadState;
-        _down = string.Empty;
-        foreach (var btn in _buttons)
-        {
-            btn.Update(gs, ref _down);
-        }
+        _visualiser.Update(gs, _colorModeButton.AltColor);
 
         foreach (var axis in _axes)
             axis.Update(gs);
-        
-        var capabilities = GamePad.GetCapabilities(PlayerIndex.One);
-        gamePadName = capabilities.DisplayName ?? "Unknown";
+
+        var capabilities = GamePad.GetCapabilities(_switcher.ActiveGamePad);
+        if (!capabilities.IsConnected)
+            _gamePadName = "Not Connected";
+        else
+            _gamePadName = capabilities.DisplayName ?? "Connected";
 
         base.Update(gameTime);
     }
 
-    
 
     private void CalculateRenderDestination()
     {
@@ -155,43 +167,53 @@ public class GamePadTester : Game
             (int)(point.Y * scaleY)
         );
     }
-    
-    private Texture2D _dot;
 
-    private Atlas _onOff;
-    private string _down = "";
-private string gamePadName = "";
+
     protected override void Draw(GameTime gameTime)
     {
-
         GraphicsDevice.SetRenderTarget(_renderTarget);
-        GraphicsDevice.Clear(BGCoolor); // antiquewhite,liteslategray
+        GraphicsDevice.Clear(_colorModeButton.CurrentColor);
+
+        _spriteBatch.Begin(samplerState: SamplerState.PointWrap);
+
+        _spriteBatch.Draw(
+            _tileBackground,
+            _renderDestination,
+            new Rectangle((int)_scrollOffset, (int)_scrollOffset, _renderDestination.Width, _renderDestination.Height),
+            Color.White * 0.02f
+        );
+
+        _spriteBatch.End();
 
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
         _colorModeButton.Draw(_spriteBatch);
-
         _switcher.Draw(_spriteBatch);
 
-        _spriteBatch.Draw(_frame, Vector2.Zero, Color.White*0.5f);
-
-        foreach (var btn in _buttons)
-            btn.Draw(_spriteBatch);
+        _visualiser.Draw(_spriteBatch);
 
         foreach (var axis in _axes)
             axis.Draw(_spriteBatch);
 
-        _spriteBatch.Draw(_logo, new Vector2(250, 140), null, Color.White,0f, Vector2.Zero, 0.05f, SpriteEffects.None, 0f );
+        Vector2 textSize = _font.MeasureString(_gamePadName);
+        _spriteBatch.DrawString(_font, _gamePadName, new Vector2(_renderDestination.Width / 2f - textSize.X / 2, 138),
+            _colorModeButton.AltColor);
 
+
+
+        _spriteBatch.Draw(_frame, Vector2.Zero, Color.White * 0.5f);
         _spriteBatch.End();
 
         GraphicsDevice.SetRenderTarget(null);
         GraphicsDevice.Clear(Color.CornflowerBlue);
+
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         _spriteBatch.Draw(_renderTarget, _finalDestination, Color.White);
-        _spriteBatch.DrawString(_font, $"Down: {_down}", new Vector2(16, 16), Color.Black, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);;
-        _spriteBatch.DrawString(_font, $"Device: {gamePadName}", new Vector2(16, 32), Color.Black, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);;
+        _spriteBatch.Draw(_logo, new Vector2(_finalDestination.Width-85, _finalDestination.Height-55), null, Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None,
+            0f );
 
+        textSize = _font.MeasureString($"V {_version}");
+        _spriteBatch.DrawString(_font, $"V {_version}", new Vector2(_finalDestination.Width-10-textSize.X, _finalDestination.Height - 20), _colorModeButton.AltColor);
         _spriteBatch.End();
 
         base.Draw(gameTime);
@@ -200,32 +222,33 @@ private string gamePadName = "";
 
 public class GamePadSwitcher
 {
-    private GamePadTester _game;
-    private Atlas _atlas;
-    private const string _on = "0:1";
-    private const string _off = "0:0";
-    private float _transparency = 0.25f;
-    private const int yOffset = 4;
-    private const int xOffset = -5;
-    private Vector2 _position;
+    private readonly GamePadTester _game;
+    private readonly Atlas _atlas;
+    private const string On = "0:1";
+    private const string Off = "0:0";
+    private readonly float _transparency = 0.25f;
+    private const int YOffset = 4;
+    private const int XOffset = -5;
     public PlayerIndex ActiveGamePad = PlayerIndex.One;
     public GamePadState ActivePadState => GamePad.GetState(ActiveGamePad);
 
-    private MouseState _prevMouse = new MouseState();
-    private bool[] _gamepadStates = [false,false,false,false];
+    private MouseState _prevMouse ;
+    private TouchLocation _prevTouch;
+    private bool[] _gamepadStates = [false, false, false, false];
+    private SpriteFont _font;
 
     private List<Rectangle> _buttons = new();
 
-    public GamePadSwitcher(Atlas atlas, Vector2 position, GamePadTester game)
+    public GamePadSwitcher(Atlas atlas, Vector2 position, GamePadTester game, SpriteFont font)
     {
         _atlas = atlas;
-        _position = position;
         _game = game;
+        _font = font;
 
-        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*0, 48,16));
-        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*1, 48,16));
-        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*2, 48,16));
-        _buttons.Add(new Rectangle((int)_position.X, (int)_position.Y+(16+yOffset)*3, 48,16));
+        _buttons.Add(new Rectangle((int)position.X, (int)position.Y + (16 + YOffset) * 0, 48, 16));
+        _buttons.Add(new Rectangle((int)position.X, (int)position.Y + (16 + YOffset) * 1, 48, 16));
+        _buttons.Add(new Rectangle((int)position.X, (int)position.Y + (16 + YOffset) * 2, 48, 16));
+        _buttons.Add(new Rectangle((int)position.X, (int)position.Y + (16 + YOffset) * 3, 48, 16));
     }
 
     public void Update()
@@ -242,23 +265,162 @@ public class GamePadSwitcher
 
             if (_buttons[0].Contains(pos))
                 ActiveGamePad = PlayerIndex.One;
-            if(_buttons[1].Contains(pos))
+            if (_buttons[1].Contains(pos))
                 ActiveGamePad = PlayerIndex.Two;
-            if(_buttons[2].Contains(pos))
+            if (_buttons[2].Contains(pos))
                 ActiveGamePad = PlayerIndex.Three;
-            if(_buttons[3].Contains(pos))
+            if (_buttons[3].Contains(pos))
+                ActiveGamePad = PlayerIndex.Four;
+        }
+
+        var tc = TouchPanel.GetCapabilities();
+        if (tc.IsConnected)
+        {
+            var touch = TouchPanel.GetState().FirstOrDefault();
+            var pos = _game.ConvertPoint(touch.Position.ToPoint());
+            if (_buttons[0].Contains(pos))
+                ActiveGamePad = PlayerIndex.One;
+            if (_buttons[1].Contains(pos))
+                ActiveGamePad = PlayerIndex.Two;
+            if (_buttons[2].Contains(pos))
+                ActiveGamePad = PlayerIndex.Three;
+            if (_buttons[3].Contains(pos))
                 ActiveGamePad = PlayerIndex.Four;
 
+            _prevTouch = touch;
+        }
 
-        }_prevMouse = ms;
+        _prevMouse = ms;
     }
 
     public void Draw(SpriteBatch spriteBatch)
     {
-        _atlas.Draw(spriteBatch, _gamepadStates[0] ? _on : _off, new Point(_buttons[0].X+(ActiveGamePad == PlayerIndex.One ? xOffset:0), _buttons[0].Y), ActiveGamePad == PlayerIndex.One ? Color.White : Color.White*0.25f);
-        _atlas.Draw(spriteBatch, _gamepadStates[1] ? _on : _off, new Point(_buttons[1].X+(ActiveGamePad == PlayerIndex.Two ? xOffset:0), _buttons[1].Y), ActiveGamePad == PlayerIndex.Two ? Color.White : Color.White*0.25f);
-        _atlas.Draw(spriteBatch, _gamepadStates[2] ? _on : _off, new Point(_buttons[2].X+(ActiveGamePad == PlayerIndex.Three ? xOffset:0), _buttons[2].Y), ActiveGamePad == PlayerIndex.Three ? Color.White : Color.White*0.25f);
-        _atlas.Draw(spriteBatch, _gamepadStates[3] ? _on : _off, new Point(_buttons[3].X+(ActiveGamePad == PlayerIndex.Four ? xOffset:0), _buttons[3].Y), ActiveGamePad == PlayerIndex.Four ? Color.White : Color.White*0.25f);
+        float alpha;
+
+        alpha = ActiveGamePad == PlayerIndex.One ? 1f : _transparency;
+        _atlas.Draw(spriteBatch, _gamepadStates[0] ? On : Off,
+            new Point(_buttons[0].X + (ActiveGamePad == PlayerIndex.One ? XOffset : 0), _buttons[0].Y),
+            Color.White * alpha);
+        spriteBatch.DrawString(_font, "1", new Vector2(_buttons[0].X + 13, _buttons[0].Y - 1 ), Color.White * alpha);
+
+        alpha = ActiveGamePad == PlayerIndex.Two ? 1f : _transparency;
+        _atlas.Draw(spriteBatch, _gamepadStates[1] ? On : Off,
+            new Point(_buttons[1].X + (ActiveGamePad == PlayerIndex.Two ? XOffset : 0), _buttons[1].Y),
+            Color.White * alpha);
+        spriteBatch.DrawString(_font, "2", new Vector2(_buttons[1].X + 13, _buttons[1].Y - 1 ), Color.White * alpha);
+
+        alpha = ActiveGamePad == PlayerIndex.Three ? 1f : _transparency;
+        _atlas.Draw(spriteBatch, _gamepadStates[2] ? On : Off,
+            new Point(_buttons[2].X + (ActiveGamePad == PlayerIndex.Three ? XOffset : 0), _buttons[2].Y),
+            Color.White * alpha);
+        spriteBatch.DrawString(_font, "3", new Vector2(_buttons[2].X + 13, _buttons[2].Y - 1 ), Color.White * alpha);
+
+        alpha = ActiveGamePad == PlayerIndex.Four ? 1f : _transparency;
+        _atlas.Draw(spriteBatch, _gamepadStates[3] ? On : Off,
+            new Point(_buttons[3].X + (ActiveGamePad == PlayerIndex.Four ? XOffset : 0), _buttons[3].Y),
+            Color.White * alpha);
+        spriteBatch.DrawString(_font, "4", new Vector2(_buttons[3].X + 13, _buttons[3].Y - 1 ), Color.White * alpha);
+    }
+}
+
+public class GamePadVisualiser
+{
+    public List<TestButton> ButtonList = new();
+    public Point Offset;
+    public Texture2D Background;
+    public Color OverlayColor = Color.White ;
+
+    public GamePadVisualiser(Point offset, Texture2D background)
+    {
+        Offset = offset;
+        Background = background;
+    }
+
+    public void AddButton(TestButton button)
+    {
+        ButtonList.Add(button);
+    }
+
+    public void Update(GamePadState gamePadState, Color overlayColor)
+    {
+        OverlayColor = overlayColor;
+
+        foreach (var btn in ButtonList)
+        {
+            btn.Update(gamePadState);
+        }
+
+
+#if DEBUG
+
+        foreach (var btn in ButtonList)
+        {
+            switch (btn.ScanButton)
+            {
+                case Buttons.A:
+                    btn.Position = new Point(147, 52);
+                    break;
+                case Buttons.B:
+                    btn.Position = new Point(157, 41);
+                    break;
+                case Buttons.X:
+                    btn.Position = new Point(137, 41);
+                    break;
+                case Buttons.Y:
+                    btn.Position = new Point(147, 30);
+                    break;
+                case Buttons.Back:
+                    btn.Position = new Point(84, 25);
+                    break;
+                case Buttons.Start:
+                    btn.Position = new Point(117, 25);
+                    break;
+                case Buttons.LeftStick:
+                    btn.Position = new Point(57, 33);
+                    break;
+                case Buttons.RightStick:
+                    btn.Position = new Point(123, 62);
+                    break;
+                case Buttons.LeftShoulder:
+                    btn.Position = new Point(57, 8);
+                    break;
+                case Buttons.RightShoulder:
+                    btn.Position = new Point(144, 8);
+                    break;
+                case Buttons.LeftTrigger:
+                    btn.Position = new Point(57, -3);
+                    break;
+                case Buttons.RightTrigger:
+                    btn.Position = new Point(144, -3);
+                    break;
+                case Buttons.DPadUp:
+                    btn.Position = new Point(78, 52);
+                    break;
+                case Buttons.DPadDown:
+                    btn.Position = new Point(78, 66);
+                    break;
+                case Buttons.DPadLeft:
+                    btn.Position = new Point(71, 60);
+                    break;
+                case Buttons.DPadRight:
+                    btn.Position = new Point(85, 60);
+                    break;
+                case Buttons.BigButton:
+                    btn.Position = new Point(101, 20);
+                    break;
+            }
+        }
+
+#endif
+    }
+
+    public void Draw(SpriteBatch spriteBatch)
+    {
+        spriteBatch.Draw(Background, Offset.ToVector2(), OverlayColor);
+        foreach (var btn in ButtonList)
+        {
+            btn.Draw(spriteBatch, Offset);
+        }
     }
 }
 
@@ -267,38 +429,75 @@ public class ColorModeButton
     private Texture2D _texture;
     private Vector2 _position;
     public Color CurrentColor;
-    private Color _altColor;
-    private MouseState _prevMouse = new MouseState();
+    public Color AltColor;
+    private MouseState _prevMouse;
+    private TouchLocation _prevTouch;
     private GamePadTester _game;
+
+    private float _lerpPosition = 1f;
+    private float _lerpSpeed;
+
+
+    private Color _lerpFrom = Color.AntiqueWhite;
+    private Color _lerpTo = Color.LightSlateGray;
 
     public ColorModeButton(Texture2D texture, Vector2 position, GamePadTester game)
     {
         _position = position;
         _texture = texture;
-        CurrentColor = Color.LightSlateGray;
-        _altColor = Color.AntiqueWhite;
+        CurrentColor = _lerpTo;
+        AltColor = _lerpFrom;
         _game = game;
     }
 
-    public void Update()
+    public void Update(GameTime gameTime)
     {
         var ms = Mouse.GetState();
+        var touch = TouchPanel.GetState().FirstOrDefault();
 
-        if (ms.LeftButton == ButtonState.Pressed & _prevMouse.LeftButton != ButtonState.Pressed)
+        var mouseClick = ms.LeftButton == ButtonState.Pressed & _prevMouse.LeftButton != ButtonState.Pressed;
+        var touchRelease = touch.State == TouchLocationState.Released;
+
+        if (mouseClick || touchRelease)
         {
-            var pos = _game.ConvertPoint(ms.Position);
+            var mousePos = _game.ConvertPoint(ms.Position);
+            var touchPos = _game.ConvertPoint(touch.Position.ToPoint());;
+            var rect = new Rectangle((int)_position.X, (int)_position.Y, _texture.Width, _texture.Height);
 
-            if (new Rectangle((int)_position.X, (int)_position.Y, _texture.Width, _texture.Height).Contains(pos))
+            if (rect.Contains(mousePos) | rect.Contains(touchPos))
             {
-                  CurrentColor = CurrentColor == Color.LightSlateGray ? Color.AntiqueWhite : Color.LightSlateGray;
-                    _altColor = CurrentColor == Color.LightSlateGray ? Color.AntiqueWhite : Color.LightSlateGray;
-
-                    _game.BGCoolor = CurrentColor;
+                if (_lerpSpeed > 0)
+                    _lerpSpeed = -1f;
+                else if (_lerpSpeed < 0)
+                    _lerpSpeed = 1f;
+                else
+                {
+                    if (CurrentColor == _lerpFrom)
+                        _lerpSpeed = 1f;
+                    else
+                        _lerpSpeed = -1f;
+                }
             }
-
         }
 
         _prevMouse = ms;
+        _prevTouch = touch;
+
+        if (_lerpSpeed == 0) return;
+
+        _lerpPosition += _lerpSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds * 5f;
+        if (_lerpPosition > 1f)
+        {
+            _lerpPosition = 1f;
+            _lerpSpeed = 0;
+        }
+        else if (_lerpPosition < 0f)
+        {
+            _lerpPosition = 0f;
+            _lerpSpeed = 0;
+        }
+        CurrentColor = Color.Lerp(_lerpFrom, _lerpTo, _lerpPosition);
+        AltColor = Color.Lerp(_lerpTo, _lerpFrom, _lerpPosition);
     }
 
     public void Draw(SpriteBatch spriteBatch)
@@ -306,7 +505,7 @@ public class ColorModeButton
         spriteBatch.Draw(
             _texture,
             _position,
-            _altColor
+            AltColor
         );
     }
 }
@@ -315,40 +514,41 @@ public class TestButton
 {
     private Atlas _atlas;
     private string _region;
-    private Point _position;
+    public Point Position;
     private Color _currentColour = Color.White;
-    private Buttons _scanButton;
-    public TestButton(Atlas atlas, string region, Point position, Buttons scanButton)
+    public Buttons ScanButton;
+
+    public TestButton(Atlas atlas, string region,  Buttons scanButton)
     {
         _atlas = atlas;
         _region = region;
-        _position = position;
-        _scanButton = scanButton;
+        Position = Point.Zero;
+        ScanButton = scanButton;
     }
 
-    public void Update(GamePadState state,ref string down)
+    public void Update(GamePadState state)
     {
-        _currentColour = state.IsButtonDown(_scanButton) ? Color.Gray : Color.White;
-        if (state.IsButtonDown(_scanButton))
-            down += _scanButton.ToString();
+        _currentColour = state.IsButtonDown(ScanButton) ? Color.Gray : Color.White;
     }
 
-    public void Draw(SpriteBatch spriteBatch)
+    public void Draw(SpriteBatch spriteBatch, Point offset)
     {
-        _atlas.Draw(spriteBatch, _region, _position, _currentColour);
+        _atlas.Draw(spriteBatch, _region, Position + offset, _currentColour, true);
     }
 }
 
 public class TestAxis
 {
-    private Texture2D _texture;
-    private Texture2D _pixel;
+    private readonly Texture2D _texture;
+    private readonly Texture2D _pixel;
     private Point _position;
-    private string _axis;
+    private readonly string _axis;
     private Rectangle _rect;
-    private bool _fromCenter;
-    
-    public TestAxis(Texture2D texture, GraphicsDevice graphicsDevice, Point position, string axis, bool fromCenter = true)
+    private readonly bool _fromCenter;
+    private readonly bool _horizontal = false;
+
+    public TestAxis(Texture2D texture, GraphicsDevice graphicsDevice, Point position, string axis,
+        bool fromCenter = true)
     {
         _position = position;
         _texture = texture;
@@ -356,6 +556,9 @@ public class TestAxis
         _pixel.SetData([Color.White]);
         _axis = axis;
         _fromCenter = fromCenter;
+        //horizontal = axis.Contains("X") ?  true :  false;
+        if (_horizontal) _position.Y += 20;
+        if (_horizontal) _position.X -= 12;
     }
 
     private float MapValue(float value, float fromMin, float fromMax, float toMin, float toMax)
@@ -365,12 +568,12 @@ public class TestAxis
         var valueScaled = (value - fromMin) / fromRange;
         return toMin + (valueScaled * toRange);
     }
-    
+
     public void Update(GamePadState state)
     {
         var gs = state;
         float scale = 0f;
-        
+
         switch (_axis)
         {
             case "RightTrigger":
@@ -395,31 +598,49 @@ public class TestAxis
 
         var min = _fromCenter ? -1f : 0f;
         var mappedHeight = MapValue(scale, min, 1f, 0f, 30f);
-        _rect = new Rectangle(_position.X, _position.Y+1, 8, (int)mappedHeight);
+
+        if (_horizontal)
+            _rect = new Rectangle(_position.X + 1, _position.Y , 8, (int)mappedHeight);
+        else
+            _rect = new Rectangle(_position.X, _position.Y + 1, 8, (int)mappedHeight);
     }
 
     public void Draw(SpriteBatch spriteBatch)
     {
+        float rotation = 0f;
+        if (_horizontal)
+        {
+            rotation = MathHelper.ToRadians(270f);
+        }
+
         spriteBatch.Draw(
             _pixel,
             _rect,
-            Color.LightCoral
+            null,
+            Color.LightCoral,
+            rotation,
+            Vector2.Zero,
+            SpriteEffects.None,
+            0f
         );
         spriteBatch.Draw(
             _texture,
             _position.ToVector2(),
-            Color.White
+            null,
+            Color.White,
+            rotation,
+            Vector2.Zero,
+            1f,
+            SpriteEffects.None,
+            0f
         );
-
     }
 }
-
-
 
 public class Atlas
 {
     public Texture2D Texture { get; set; }
-    public Dictionary<string,Rectangle> Rectangles { get; set; }
+    public Dictionary<string, Rectangle> Rectangles { get; set; }
     public Point TileSize { get; set; }
 
     public Atlas(Texture2D texture, Point tileSize)
@@ -437,16 +658,19 @@ public class Atlas
             for (int y = 0; y < divSizeY; y++)
             {
                 Rectangle rect = new(x * tileSize.X, y * tileSize.Y, tileSize.X, tileSize.Y);
-                Rectangles.Add($"{x}:{y}",rect);
+                Rectangles.Add($"{x}:{y}", rect);
             }
         }
     }
 
-    public void Draw(SpriteBatch spriteBatch, string region, Point position, Color color)
+    public void Draw(SpriteBatch spriteBatch, string region, Point position, Color color, bool origin = false)
     {
+        var offset = Point.Zero;
+        if (origin) offset = new Point(-8, -8);
+
         spriteBatch.Draw(
-            Texture, 
-            new Rectangle(position.X, position.Y, TileSize.X ,TileSize.Y ),
+            Texture,
+            new Rectangle(position.X + offset.X, position.Y + offset.Y, TileSize.X , TileSize.Y ),
             Rectangles[region],
             color,
             0f,
@@ -455,4 +679,69 @@ public class Atlas
             0f
         );
     }
+}
+
+public class BitmapFont
+{
+    public readonly SpriteFont Font;
+
+    public BitmapFont(Texture2D texture, string descriptorFile)
+    {
+        var glyphs = new List<Glyph>();
+
+        var stream = TitleContainer.OpenStream(descriptorFile);
+
+        if (stream is null) return;
+
+        using var reader = new StreamReader(stream);
+        var content = reader.ReadToEnd();
+        
+        foreach (var line in content.Split('\n'))
+        {
+            if (!line.StartsWith("char ")) continue;
+
+            var parts = line.Split([ ' ' ]);
+
+
+            var character = (char)int.Parse(parts[1][3..]);
+            var x = int.Parse(parts[2][2..]);
+            var y = int.Parse(parts[3][2..]);
+            var width = int.Parse(parts[4][6..]);
+            var height = int.Parse(parts[5][7..]);
+            var xOffset = int.Parse(parts[6][8..]);
+            var yOffset = int.Parse(parts[7][8..]);
+
+            glyphs.Add( new Glyph
+            {
+                Character = character,
+                SourceRectangle = new Rectangle(x, y, width, height),
+                XOffset = xOffset,
+                YOffset = yOffset
+            });
+        }
+
+        List<char> characters = new List<char>();
+        List<Rectangle> rectangles = new List<Rectangle>();
+        List<Rectangle> cropings = new List<Rectangle>();
+        List<Vector3> kerning = new List<Vector3>();
+
+        foreach (var glyph in glyphs)
+        {
+            characters.Add(glyph.Character);
+            rectangles.Add(glyph.SourceRectangle);
+            cropings.Add(new Rectangle(glyph.XOffset, glyph.YOffset, glyph.SourceRectangle.Width,
+                glyph.SourceRectangle.Height));
+            kerning.Add(new Vector3(1, glyph.SourceRectangle.Width, 1));
+        }
+
+        Font = new SpriteFont(texture, rectangles, cropings, characters, 2, 0, kerning, '*');
+    }
+}
+
+public struct Glyph
+{
+    public char Character;
+    public Rectangle SourceRectangle;
+    public int XOffset;
+    public int YOffset;
 }
