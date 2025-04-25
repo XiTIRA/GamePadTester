@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <MonoGamePlatform>Android</MonoGamePlatform>
+
         <TargetFramework>net8.0-android</TargetFramework>
         <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
         <OutputType>Exe</OutputType>
@@ -9,9 +11,9 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.3" />
-        <PackageReference Include="MonoGame.Framework.Android" Version="3.8.3.2093-develop" />
     </ItemGroup>
     <ItemGroup>
+      <ProjectReference Include="..\..\..\MonoGame\MonoGame.Framework\MonoGame.Framework.Android.csproj" />
       <ProjectReference Include="..\Xitira.GamePadTester\Xitira.GamePadTester.csproj" />
     </ItemGroup>
 
@@ -20,7 +22,6 @@
             <Link>Content\Content.mgcb</Link>
         </MonoGameContentReference>
     </ItemGroup>
-
 
     <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
         <Message Text="Restoring dotnet tools" Importance="High"/>

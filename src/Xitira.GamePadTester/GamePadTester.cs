@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.Xna.Framework;
@@ -23,6 +24,7 @@ public class GamePadTester : Game
     private List<TestAxis> _axes = new();
 
     private SpriteFont _font;
+    private SpriteFont _bigFont;
     private Texture2D _logo;
     private Texture2D _frame;
     private Texture2D _tileBackground;
@@ -82,7 +84,9 @@ public class GamePadTester : Game
         _renderTarget = new RenderTarget2D(GraphicsDevice, _renderDestination.Width, _renderDestination.Height);
 
         var bitmapFont = new BitmapFont(Content.Load<Texture2D>("Unnamed"), "Content/Unnamed.fnt");
-        _font = bitmapFont.Font;
+        var dogicaFont = new BitmapFont(Content.Load<Texture2D>("dogica"), "Content/dogica.fnt");
+        _font = dogicaFont.Font;
+        _bigFont = bitmapFont.Font;
 
         _tileBackground = Content.Load<Texture2D>("tile");
         var atlas = new Atlas(Content.Load<Texture2D>("buttons"), new Point(16, 16));
@@ -114,15 +118,17 @@ public class GamePadTester : Game
         _visualiser.AddButton(new TestButton(atlas, "21:7",  Buttons.BigButton));
         _visualiser.AddButton(new TestButton(atlas, "7:33",  Buttons.LeftStick));
         _visualiser.AddButton(new TestButton(atlas, "7:34",  Buttons.RightStick));
+        _visualiser.UpdateButtonPositions();
 
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(14, 16), "RightTrigger",
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(14, 16), "LeftTrigger",
             false));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(24, 16), "LeftTrigger",
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(24, 16), "RightTrigger",
             false));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(5, 110), "RightStickX"));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(14, 110), "RightStickY"));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(24, 110), "LeftStickX"));
-        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(33, 110), "LeftStickY"));
+
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(5, 110), "LeftStickX"));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(14, 110), "LeftStickY"));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(24, 110), "RightStickX"));
+        _axes.Add(new TestAxis(Content.Load<Texture2D>("battery"), GraphicsDevice, new Point(33, 110), "RightStickY"));
     }
 
     protected override void Update(GameTime gameTime)
@@ -193,11 +199,9 @@ public class GamePadTester : Game
         _visualiser.Draw(_spriteBatch);
 
         foreach (var axis in _axes)
+        {
             axis.Draw(_spriteBatch);
-
-        Vector2 textSize = _font.MeasureString(_gamePadName);
-        _spriteBatch.DrawString(_font, _gamePadName, new Vector2(_renderDestination.Width / 2f - textSize.X / 2, 138),
-            _colorModeButton.AltColor);
+        }
 
 
 
@@ -212,8 +216,26 @@ public class GamePadTester : Game
         _spriteBatch.Draw(_logo, new Vector2(_finalDestination.Width-85, _finalDestination.Height-55), null, Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None,
             0f );
 
+        Vector2 textSize = _font.MeasureString(_gamePadName);
+        float scalex =   (_finalDestination.Width/2f)/textSize.X;
+        float scaley =  (_finalDestination.Height/2f)/textSize.Y ;
+        float scale = Math.Min(scalex, scaley);
+
+        if (scale < 3f) scale = 3f;
+        if (scale > 5f) scale = 5f;
+
+        _spriteBatch.DrawString(
+            _font,
+            _gamePadName,
+            new Vector2(_finalDestination.Width / 2f , _finalDestination.Height-(textSize.Y*scale)),
+            _colorModeButton.AltColor,
+            0f,
+            new Vector2(textSize.X/2,textSize.Y/2),
+            scale,
+            SpriteEffects.None, 0f);
+
         textSize = _font.MeasureString($"V {_version}");
-        _spriteBatch.DrawString(_font, $"V {_version}", new Vector2(_finalDestination.Width-10-textSize.X, _finalDestination.Height - 20), _colorModeButton.AltColor);
+        _spriteBatch.DrawString(_bigFont, $"V {_version}", new Vector2(_finalDestination.Width-10-textSize.X, _finalDestination.Height - 20), _colorModeButton.AltColor);
         _spriteBatch.End();
 
         base.Draw(gameTime);
@@ -301,25 +323,25 @@ public class GamePadSwitcher
         _atlas.Draw(spriteBatch, _gamepadStates[0] ? On : Off,
             new Point(_buttons[0].X + (ActiveGamePad == PlayerIndex.One ? XOffset : 0), _buttons[0].Y),
             Color.White * alpha);
-        spriteBatch.DrawString(_font, "1", new Vector2(_buttons[0].X + 13, _buttons[0].Y - 1 ), Color.White * alpha);
+        spriteBatch.DrawString(_font, "1", new Vector2(_buttons[0].X + 13, _buttons[0].Y +3 ), Color.White * alpha);
 
         alpha = ActiveGamePad == PlayerIndex.Two ? 1f : _transparency;
         _atlas.Draw(spriteBatch, _gamepadStates[1] ? On : Off,
             new Point(_buttons[1].X + (ActiveGamePad == PlayerIndex.Two ? XOffset : 0), _buttons[1].Y),
             Color.White * alpha);
-        spriteBatch.DrawString(_font, "2", new Vector2(_buttons[1].X + 13, _buttons[1].Y - 1 ), Color.White * alpha);
+        spriteBatch.DrawString(_font, "2", new Vector2(_buttons[1].X + 13, _buttons[1].Y +3), Color.White * alpha);
 
         alpha = ActiveGamePad == PlayerIndex.Three ? 1f : _transparency;
         _atlas.Draw(spriteBatch, _gamepadStates[2] ? On : Off,
             new Point(_buttons[2].X + (ActiveGamePad == PlayerIndex.Three ? XOffset : 0), _buttons[2].Y),
             Color.White * alpha);
-        spriteBatch.DrawString(_font, "3", new Vector2(_buttons[2].X + 13, _buttons[2].Y - 1 ), Color.White * alpha);
+        spriteBatch.DrawString(_font, "3", new Vector2(_buttons[2].X + 13, _buttons[2].Y +3 ), Color.White * alpha);
 
         alpha = ActiveGamePad == PlayerIndex.Four ? 1f : _transparency;
         _atlas.Draw(spriteBatch, _gamepadStates[3] ? On : Off,
             new Point(_buttons[3].X + (ActiveGamePad == PlayerIndex.Four ? XOffset : 0), _buttons[3].Y),
             Color.White * alpha);
-        spriteBatch.DrawString(_font, "4", new Vector2(_buttons[3].X + 13, _buttons[3].Y - 1 ), Color.White * alpha);
+        spriteBatch.DrawString(_font, "4", new Vector2(_buttons[3].X + 13, _buttons[3].Y +3 ), Color.White * alpha);
     }
 }
 
@@ -350,9 +372,22 @@ public class GamePadVisualiser
             btn.Update(gamePadState);
         }
 
-
 #if DEBUG
+        UpdateButtonPositions();
+#endif
+    }
 
+    public void Draw(SpriteBatch spriteBatch)
+    {
+        spriteBatch.Draw(Background, Offset.ToVector2(), OverlayColor);
+        foreach (var btn in ButtonList)
+        {
+            btn.Draw(spriteBatch, Offset);
+        }
+    }
+
+    public void UpdateButtonPositions()
+    {
         foreach (var btn in ButtonList)
         {
             switch (btn.ScanButton)
@@ -409,17 +444,6 @@ public class GamePadVisualiser
                     btn.Position = new Point(101, 20);
                     break;
             }
-        }
-
-#endif
-    }
-
-    public void Draw(SpriteBatch spriteBatch)
-    {
-        spriteBatch.Draw(Background, Offset.ToVector2(), OverlayColor);
-        foreach (var btn in ButtonList)
-        {
-            btn.Draw(spriteBatch, Offset);
         }
     }
 }
@@ -546,6 +570,8 @@ public class TestAxis
     private Rectangle _rect;
     private readonly bool _fromCenter;
     private readonly bool _horizontal = false;
+
+    public Vector2 Position => _position.ToVector2();
 
     public TestAxis(Texture2D texture, GraphicsDevice graphicsDevice, Point position, string axis,
         bool fromCenter = true)
@@ -731,7 +757,7 @@ public class BitmapFont
             rectangles.Add(glyph.SourceRectangle);
             cropings.Add(new Rectangle(glyph.XOffset, glyph.YOffset, glyph.SourceRectangle.Width,
                 glyph.SourceRectangle.Height));
-            kerning.Add(new Vector3(1, glyph.SourceRectangle.Width, 1));
+            kerning.Add(new Vector3(0, glyph.SourceRectangle.Width, 0));
         }
 
         Font = new SpriteFont(texture, rectangles, cropings, characters, 2, 0, kerning, '*');
