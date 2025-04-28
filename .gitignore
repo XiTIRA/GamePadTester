@@ -17,6 +17,9 @@ syntax: glob
 .packages
 .tools
 
+pub/dx/*
+pub/gl/*
+
 # User-specific files
 *.suo
 *.user

@@ -2,7 +2,7 @@
     <PropertyGroup>
         <MonoGamePlatform>Android</MonoGamePlatform>
 
-        <TargetFramework>net8.0-android</TargetFramework>
+        <TargetFramework>net9.0-android</TargetFramework>
         <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
         <OutputType>Exe</OutputType>
         <ApplicationId>com.companyname.Xitira.GamePadTester.And</ApplicationId>
@@ -11,9 +11,9 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.3" />
+        <PackageReference Include="MonoGame.Framework.Android" Version="3.8.3" />
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\..\..\MonoGame\MonoGame.Framework\MonoGame.Framework.Android.csproj" />
       <ProjectReference Include="..\Xitira.GamePadTester\Xitira.GamePadTester.csproj" />
     </ItemGroup>
 
