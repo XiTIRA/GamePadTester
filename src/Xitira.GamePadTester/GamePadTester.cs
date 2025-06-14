@@ -115,7 +115,6 @@ public class GamePadTester : Game
         _visualiser.AddButton(new TestButton(atlas, "21:4",  Buttons.RightTrigger));
         _visualiser.AddButton(new TestButton(atlas, "21:5",  Buttons.LeftShoulder));
         _visualiser.AddButton(new TestButton(atlas, "21:6",  Buttons.RightShoulder));
-        _visualiser.AddButton(new TestButton(atlas, "21:7",  Buttons.BigButton));
         _visualiser.AddButton(new TestButton(atlas, "7:33",  Buttons.LeftStick));
         _visualiser.AddButton(new TestButton(atlas, "7:34",  Buttons.RightStick));
         _visualiser.UpdateButtonPositions();
@@ -440,9 +439,7 @@ public class GamePadVisualiser
                 case Buttons.DPadRight:
                     btn.Position = new Point(85, 60);
                     break;
-                case Buttons.BigButton:
-                    btn.Position = new Point(101, 20);
-                    break;
+
             }
         }
     }
