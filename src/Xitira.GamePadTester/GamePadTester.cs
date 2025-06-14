@@ -12,7 +12,7 @@ namespace Xitira.GamePadTester;
 
 public class GamePadTester : Game
 {
-    private readonly string _version = "3.8.3.2093-develop"  ;
+    private readonly string _version = "3.8.4"  ;
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
 
