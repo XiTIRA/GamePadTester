@@ -12,6 +12,7 @@
     <ItemGroup>
         <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.4" />
         <PackageReference Include="MonoGame.Framework.Android" Version="3.8.4" />
+        <PackageReference Include="MonoGame.Library.OpenAL" Version="1.24.3.2" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Xitira.GamePadTester\Xitira.GamePadTester.csproj" />
