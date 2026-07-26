@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -9,7 +10,7 @@ namespace Xitira.GamePadTester;
 
 public class GamePadTester : Game
 {
-    private readonly string _version = "3.8.4.1"  ;
+    private readonly string _version = "3.8.5"  ;
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
 
@@ -76,12 +77,13 @@ public class GamePadTester : Game
 
     protected override void LoadContent()
     {
+        Content = new LiteDbContent(Services,"");
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
         _renderTarget = new RenderTarget2D(GraphicsDevice, _renderDestination.Width, _renderDestination.Height);
 
-        var bitmapFont = new BitmapFont(Content.Load<Texture2D>("Unnamed"), "Content/Unnamed.fnt");
-        var dogicaFont = new BitmapFont(Content.Load<Texture2D>("dogica"), "Content/dogica.fnt");
+        var bitmapFont = new BitmapFont(Content.Load<Texture2D>("Unnamed_map"), ((LiteDbContent)Content).LoadRaw("Unnamed"));
+        var dogicaFont = new BitmapFont(Content.Load<Texture2D>("dogica_map"), ((LiteDbContent)Content).LoadRaw("dogica"));
         _font = dogicaFont.Font;
         _bigFont = bitmapFont.Font;
 

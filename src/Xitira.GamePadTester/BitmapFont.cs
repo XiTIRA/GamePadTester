@@ -9,11 +9,11 @@ public class BitmapFont
 {
     public readonly SpriteFont Font;
 
-    public BitmapFont(Texture2D texture, string descriptorFile)
+    public BitmapFont(Texture2D texture, Stream descriptorFile)
     {
         var glyphs = new List<Glyph>();
 
-        var stream = TitleContainer.OpenStream(descriptorFile);
+        var stream = descriptorFile;
 
         if (stream is null) return;
 
@@ -25,8 +25,7 @@ public class BitmapFont
             if (!line.StartsWith("char ")) continue;
 
             var parts = line.Split([ ' ' ]);
-
-
+            
             var character = (char)int.Parse(parts[1][3..]);
             var x = int.Parse(parts[2][2..]);
             var y = int.Parse(parts[3][2..]);

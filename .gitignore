@@ -16,7 +16,10 @@ syntax: glob
 .dotnet-tools-global
 .packages
 .tools
-
+ContentAND/
+ContentDX/
+ContentGL/
+ContentVK/
 pub/dx/*
 pub/gl/*
 

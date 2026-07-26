@@ -13,19 +13,15 @@
         <ApplicationIcon>Icon.ico</ApplicationIcon>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.4.1"/>
-        <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.4.1"/>
+        <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5"/>
     </ItemGroup>
-    <ItemGroup>
-        <MonoGameContentReference Include="..\Xitira.GamePadTester\Content\Content.mgcb">
-            <Link>Content\Content.mgcb</Link>
-        </MonoGameContentReference>
-    </ItemGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\Xitira.GamePadTester\Xitira.GamePadTester.csproj" />
     </ItemGroup>
-    <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
-        <Message Text="Restoring dotnet tools" Importance="High"/>
-        <Exec Command="dotnet tool restore"/>
-    </Target>
+
+    <ItemGroup>
+        <EmbeddedResource Include="../Xitira.GamePadTester.Content/ContentDX/Content.db">
+        </EmbeddedResource>
+    </ItemGroup>
 </Project>

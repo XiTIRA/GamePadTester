@@ -6,25 +6,25 @@
         <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
         <OutputType>Exe</OutputType>
         <ApplicationId>com.companyname.Xitira.GamePadTester.And</ApplicationId>
-        <ApplicationVersion>5</ApplicationVersion>
-        <ApplicationDisplayVersion>1.5</ApplicationDisplayVersion>
+        <ApplicationVersion>6</ApplicationVersion>
+        <ApplicationDisplayVersion>1.6</ApplicationDisplayVersion>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.4.1" />
-        <PackageReference Include="MonoGame.Framework.Android" Version="3.8.4.1" />
+        <PackageReference Include="MonoGame.Framework.Android" Version="3.8.5" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Xitira.GamePadTester\Xitira.GamePadTester.csproj" />
     </ItemGroup>
 
+
     <ItemGroup>
-        <MonoGameContentReference Include="..\Xitira.GamePadTester\Content\Content.mgcb">
-            <Link>Content\Content.mgcb</Link>
-        </MonoGameContentReference>
+        <EmbeddedResource Include="../Xitira.GamePadTester.Content/ContentAND/Content.db">
+        </EmbeddedResource>
     </ItemGroup>
 
-    <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
-        <Message Text="Restoring dotnet tools" Importance="High"/>
-        <Exec Command="dotnet tool restore"/>
-    </Target>
+    <ItemGroup>
+        <TrimmerRootAssembly Include="LiteDB" />
+    </ItemGroup>
+
+
 </Project>

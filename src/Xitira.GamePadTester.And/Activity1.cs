@@ -1,3 +1,4 @@
+using System.Reflection;
 using Android.App;
 using Android.Content.PM;
 using Android.OS;
@@ -26,6 +27,8 @@ namespace Xitira.GamePadTester.And
             base.OnCreate(bundle);
 
             _game = new GamePadTester();
+            LiteDbContent.LauncherAssembly = Assembly.GetExecutingAssembly();
+
             _view = _game.Services.GetService(typeof(View)) as View;
 
             SetContentView(_view);

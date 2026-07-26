@@ -8,6 +8,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xitira.GamePadTester.And", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xitira.GamePadTester.Dx", "src\Xitira.GamePadTester.Dx\Xitira.GamePadTester.Dx.csproj", "{4AF6F710-6496-40BA-B720-3BF511A46FA1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xitira.GamePadTester.Content", "src\Xitira.GamePadTester.Content\Xitira.GamePadTester.Content.csproj", "{ED9864E8-FF42-4D11-9660-685A0F63A6A7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xitira.GamePadTester.Vk", "src\Xitira.GamePadTester.Vk\Xitira.GamePadTester.Vk.csproj", "{0844E4CE-75A9-4F85-8A82-D1BE9356D4E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +34,13 @@ Global
 		{4AF6F710-6496-40BA-B720-3BF511A46FA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4AF6F710-6496-40BA-B720-3BF511A46FA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4AF6F710-6496-40BA-B720-3BF511A46FA1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED9864E8-FF42-4D11-9660-685A0F63A6A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED9864E8-FF42-4D11-9660-685A0F63A6A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED9864E8-FF42-4D11-9660-685A0F63A6A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED9864E8-FF42-4D11-9660-685A0F63A6A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0844E4CE-75A9-4F85-8A82-D1BE9356D4E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0844E4CE-75A9-4F85-8A82-D1BE9356D4E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0844E4CE-75A9-4F85-8A82-D1BE9356D4E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0844E4CE-75A9-4F85-8A82-D1BE9356D4E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
